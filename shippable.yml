@@ -1,0 +1,13 @@
+resources:
+  - name: version
+    type: version
+    versionTemplate:
+      versionName: "0.0.1"
+
+jobs:
+  - name: release
+    type: release
+    steps:
+      - IN: version
+      
+language: none

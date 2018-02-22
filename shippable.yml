@@ -9,5 +9,12 @@ jobs:
     type: release
     steps:
       - IN: version
-      
+
+  - name: sample-runSh
+    type: runSh
+    steps:
+      - TASK:
+          script:
+            - ls
+
 language: none

